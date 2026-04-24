@@ -1,0 +1,21 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Apply Seaborn styling
+sns.set_theme(style="whitegrid") [cite: 170]
+
+# Load Dataset
+# Note: Using seaborn's internal dataset; replace with pd.read_csv("titanic.csv") if using local file [cite: 174]
+df = sns.load_dataset('titanic')
+
+# Data Cleaning
+df["age"] = df["age"].fillna(df["age"].median()) [cite: 182]
+df["embarked"] = df["embarked"].fillna(df["embarked"].mode()[0]) [cite: 184]
+df.drop(columns=["deck"], errors="ignore", inplace=True) # Dropping Cabin/Deck [cite: 186]
+
+# Feature Engineering
+df["FamilySize"] = df["sibsp"] + df["parch"] [cite: 190]
+df["AgeGroup"] = pd.cut(df["age"], bins=[0,12,18,30,50,80], 
+                        labels=["Child", "Teen", "YoungAdult", "Adult", "Senior"]) [cite: 192, 193, 194]
