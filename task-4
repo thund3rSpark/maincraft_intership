@@ -1,0 +1,78 @@
+# 1) Imports [cite: 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291]
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import joblib
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (classification_report, roc_auc_score, 
+                             ConfusionMatrixDisplay, RocCurveDisplay)
+
+# 2) Load data [cite: 292, 293]
+# Ensure titanic.csv is in your working directory
+df = pd.read_csv("titanic.csv") 
+
+# 3) Select features/target [cite: 294, 295, 296, 297]
+# Target is 'Survived' [cite: 248]
+X = df[["Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked"]]
+y = df["Survived"].astype(int)
+
+# 4) Define feature groups [cite: 298, 299, 300]
+num_cols = ["Age", "SibSp", "Parch", "Fare"]
+cat_cols = ["Pclass", "Sex", "Embarked"] # Pclass treated as categorical for One-Hot [cite: 300]
+
+# 5) Preprocessor: impute + scale/encode [cite: 301, 302, 303]
+preprocess = ColumnTransformer([
+    # Numeric: Median imputation + Standardization [cite: 250, 253, 304, 305, 306, 307]
+    ("num", Pipeline([
+        ("imp", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler())
+    ]), num_cols),
+    # Categorical: Most frequent imputation + One-Hot Encoding [cite: 251, 252, 308, 309, 310, 311]
+    ("cat", Pipeline([
+        ("imp", SimpleImputer(strategy="most_frequent")),
+        ("ohe", OneHotEncoder(handle_unknown="ignore"))
+    ]), cat_cols)
+])
+
+# 6) Full pipeline: preprocess + model [cite: 312, 313, 314, 315]
+pipe = Pipeline([
+    ("prep", preprocess),
+    ("clf", LogisticRegression(max_iter=1000)) # Increased iterations for convergence [cite: 257, 314]
+])
+
+# 7) Train/test split (80/20, stratified) [cite: 255, 316, 317, 318, 319]
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 8) Fit and evaluate [cite: 320, 321, 322, 323, 324]
+pipe.fit(X_tr, y_tr)
+y_pred = pipe.predict(X_te)
+y_proba = pipe.predict_proba(X_te)[:, 1]
+
+# Display Metrics [cite: 258, 259, 260, 261, 325, 326]
+print("Classification report:\n", classification_report(y_te, y_pred))
+print(f"ROC-AUC Score: {roc_auc_score(y_te, y_proba):.4f}")
+
+# Visual Evaluations [cite: 327, 328, 329, 330, 331, 332]
+fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+ConfusionMatrixDisplay.from_predictions(y_te, y_pred, ax=ax[0])
+ax[0].set_title("Confusion Matrix (Test)")
+
+RocCurveDisplay.from_predictions(y_te, y_proba, ax=ax[1])
+ax[1].set_title("ROC Curve (Test)")
+plt.show()
+
+# 9) Cross-validation (5-fold ROC-AUC) [cite: 243, 262, 333, 334]
+cv_auc = cross_val_score(pipe, X, y, cv=5, scoring="roc_auc")
+print(f"CV ROC-AUC: {cv_auc.mean():.3f} +/- {cv_auc.std():.3f}") # [cite: 335]
+
+# 10) Persist and reload [cite: 263, 264, 265, 336, 337, 338]
+joblib.dump(pipe, "model.joblib")
+loaded_model = joblib.load("model.joblib")
+print("Sample predictions from reloaded model:", loaded_model.predict(X_te.head(5))) # [cite: 339]
